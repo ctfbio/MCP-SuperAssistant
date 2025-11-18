@@ -1,6 +1,7 @@
 /**
  * Storage functionality for executed functions
  * This module provides utilities to store and retrieve information about executed functions
+ * SECURITY HARDENED: Uses in-memory storage only (no localStorage for sensitive params)
  * URL-based storage implementation with race condition prevention
  */
 
@@ -18,8 +19,12 @@ interface URLBasedFunctionHistory {
   [url: string]: Record<string, ExecutedFunction>; // Key is functionName:callId:contentSignature
 }
 
-// Storage key for the executed functions
-const STORAGE_KEY = 'mcp_url_based_function_history';
+// SECURITY: Use in-memory storage only to prevent sensitive data leakage
+// This prevents tool parameters from being accessible via localStorage XSS attacks
+const IN_MEMORY_STORAGE: URLBasedFunctionHistory = {};
+
+// Storage key deprecated - keeping for backward compatibility comment
+const STORAGE_KEY = 'mcp_url_based_function_history'; // NOT USED - security hardened
 
 /**
  * Store information about an executed function with race condition prevention
@@ -51,8 +56,8 @@ export const storeExecutedFunction = (
   // Create a unique key for this function execution
   const executionKey = generateExecutionKey(functionName, callId, contentSignature);
 
-  // Use transaction pattern to prevent race conditions
-  const storage = getURLBasedStorage();
+  // SECURITY: Use in-memory storage only (no localStorage persistence)
+  const storage = IN_MEMORY_STORAGE;
 
   // Ensure this URL exists in storage
   if (!storage[url]) {
@@ -62,31 +67,9 @@ export const storeExecutedFunction = (
   // Add/update the execution record
   storage[url][executionKey] = executionRecord;
 
-  // Save back to storage with race condition prevention
-  try {
-    const maxRetries = 3;
-    let retries = 0;
-    let saved = false;
-
-    while (!saved && retries < maxRetries) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(storage));
-        saved = true;
-      } catch (error) {
-        retries++;
-        // Short delay before retrying
-        if (retries < maxRetries) {
-          console.warn(`Storage write failed, retrying (${retries}/${maxRetries})`);
-        }
-      }
-    }
-
-    if (!saved) {
-      console.error('Failed to store executed function after multiple attempts');
-    }
-  } catch (error) {
-    console.error('Failed to store executed function:', error);
-  }
+  // SECURITY NOTE: NOT saving to localStorage to prevent XSS data leakage
+  // Data only persists for the current page session
+  console.debug('[Storage] Function execution stored in memory only (not persisted to localStorage for security)');
 
   return executionRecord;
 };
@@ -100,17 +83,13 @@ const generateExecutionKey = (functionName: string, callId: string, contentSigna
 
 /**
  * Get URL-based storage data
+ * SECURITY: Returns in-memory storage only (not localStorage)
  *
  * @returns URL-based function history storage
  */
 const getURLBasedStorage = (): URLBasedFunctionHistory => {
-  try {
-    const storedData = localStorage.getItem(STORAGE_KEY);
-    return storedData ? JSON.parse(storedData) : {};
-  } catch (error) {
-    console.error('Failed to retrieve URL-based function history:', error);
-    return {};
-  }
+  // SECURITY: Return in-memory storage only
+  return IN_MEMORY_STORAGE;
 };
 
 /**

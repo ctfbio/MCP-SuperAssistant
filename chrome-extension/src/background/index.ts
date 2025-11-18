@@ -1,6 +1,6 @@
 import 'webextension-polyfill';
 import { exampleThemeStorage } from '@extension/storage';
-import { RemoteConfigManager } from './remote-config-manager';
+// Remote Config removed for security hardening
 import {
   runWithBackwardsCompatibility,
   isMcpServerConnected,
@@ -15,7 +15,7 @@ import {
   type TransportType,
   type ConnectionRequest
 } from '../mcpclient/index';
-import { sendAnalyticsEvent, trackError } from '../../utils/analytics';
+// Analytics removed for security hardening
 
 // Import message types for type safety
 import type {
@@ -45,8 +45,7 @@ const DEFAULT_STREAMABLE_HTTP_URL = 'http://localhost:3006';
 type ConnectionType = TransportType;
 const DEFAULT_CONNECTION_TYPE: ConnectionType = 'sse';
 
-// Remote Config Manager
-let remoteConfigManager: RemoteConfigManager | null = null;
+// Remote Config Manager removed for security hardening
 
 // Background script state management with connection type support
 let serverUrl: string = DEFAULT_SSE_URL;
@@ -229,7 +228,6 @@ function categorizeToolError(error: Error): { isConnectionError: boolean; isTool
  * The initialization is designed to be non-blocking and resilient to failures.
  */
 async function initializeExtension() {
-  sendAnalyticsEvent('extension_loaded', {});
   console.log('Extension initializing...');
 
   // Initialize theme
@@ -253,8 +251,7 @@ async function initializeExtension() {
   // Set initial connection status
   updateConnectionStatus(false);
 
-  // Initialize Remote Config Manager
-  await initializeRemoteConfig();
+  // Remote Config Manager removed for security hardening
 
   console.log('Extension initialized successfully');
 
@@ -452,34 +449,19 @@ setInterval(() => {
 // Note: This may not catch all async errors perfectly depending on how they propagate
 self.addEventListener('unhandledrejection', event => {
   console.error('Unhandled rejection in service worker:', event.reason);
-  if (event.reason instanceof Error) {
-    trackError(event.reason, 'background_unhandled_rejection');
-  } else {
-    // Handle non-Error rejections if necessary
-    sendAnalyticsEvent('extension_error', {
-      error_message: `Unhandled rejection: ${JSON.stringify(event.reason)}`,
-      error_context: 'background_unhandled_rejection_non_error',
-    });
-  }
+  // Analytics removed for security hardening
 });
 
 self.addEventListener('error', event => {
   console.error('Uncaught error in service worker:', event.error);
-  if (event.error instanceof Error) {
-    trackError(event.error, 'background_uncaught_error');
-  } else {
-    sendAnalyticsEvent('extension_error', {
-      error_message: `Uncaught error: ${event.message}`,
-      error_context: 'background_uncaught_error_non_error',
-    });
-  }
+  // Analytics removed for security hardening
 });
 
 // --- Lifecycle Events ---
 
 chrome.runtime.onInstalled.addListener(async details => {
   console.log('Extension installed or updated:', details.reason);
-  sendAnalyticsEvent('extension_installed', { reason: details.reason });
+  // Analytics removed for security hardening
   
   const currentVersion = chrome.runtime.getManifest().version;
 
@@ -493,10 +475,7 @@ chrome.runtime.onInstalled.addListener(async details => {
       version: currentVersion
     });
     
-    // Initialize Remote Config after installation
-    if (remoteConfigManager && remoteConfigManager.initialized) {
-      await remoteConfigManager.fetchConfig(true);
-    }
+    // Remote Config removed for security hardening
     
   } else if (details.reason === 'update') {
     const previousVersion = details.previousVersion || 'unknown';
@@ -509,10 +488,7 @@ chrome.runtime.onInstalled.addListener(async details => {
       lastUpdateDate: new Date().toISOString()
     });
     
-    // Notify Remote Config about version update
-    if (remoteConfigManager && remoteConfigManager.initialized) {
-      await remoteConfigManager.fetchConfig(true);
-    }
+    // Remote Config removed for security hardening
     
     // Broadcast version update to content scripts
     setTimeout(() => {
@@ -541,7 +517,7 @@ chrome.runtime.onInstalled.addListener(async details => {
 
 chrome.runtime.onStartup.addListener(() => {
   console.log('Browser startup detected.');
-  sendAnalyticsEvent('browser_startup', {});
+  // Analytics removed for security hardening
   // Re-check connection on startup
   initializeExtension().catch(err => console.error('Error initializing on startup:', err));
 });
@@ -587,20 +563,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   /* ------------------------------------------------------------------ */
-  /* Legacy analytics bridge                                             */
+  /* Legacy analytics bridge - REMOVED FOR SECURITY                      */
   /* ------------------------------------------------------------------ */
   if (message.command === 'trackAnalyticsEvent') {
-    if (message.eventName && message.eventParams) {
-      sendAnalyticsEvent(message.eventName, message.eventParams)
-        .then(() => sendResponse({ success: true }))
-        .catch(error => {
-          console.error('[Background] Error tracking analytics event from message:', error);
-          sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) });
-        });
-      return true; // Async response
-    }
-    console.warn('[Background] Invalid trackAnalyticsEvent message received:', message);
-    sendResponse({ success: false, error: 'Invalid eventName or eventParams' });
+    // Analytics removed for security hardening
+    console.debug('[Background] Analytics tracking disabled for security');
+    sendResponse({ success: false, error: 'Analytics disabled for security' });
     return false;
   }
 
@@ -614,12 +582,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   /* ------------------------------------------------------------------ */
-  /* Remote Config integration                                           */
+  /* Remote Config integration - REMOVED FOR SECURITY                    */
   /* ------------------------------------------------------------------ */
   if (typeof message.type === 'string' && message.type.startsWith('remote-config:')) {
-    // Handle Remote Config messages asynchronously
-    handleRemoteConfigMessage(message, sender, sendResponse);
-    return true; // Keep channel open for async response
+    // Remote Config removed for security hardening
+    console.debug('[Background] Remote Config disabled for security');
+    sendResponse({ success: false, error: 'Remote Config disabled for security' });
+    return false;
   }
 
   // Fallback – message not handled here
@@ -1008,131 +977,5 @@ function broadcastConfigUpdateToContentScripts(config: { uri: string; connection
   });
 }
 
-/**
- * Enhanced Remote Config message handler
- * 
- * @param message - The message received from the content script
- * @param sender - Chrome runtime message sender information
- * @param sendResponse - Callback function to send response back to sender
- */
-async function handleRemoteConfigMessage(
-  message: any, 
-  sender: chrome.runtime.MessageSender, 
-  sendResponse: (response: any) => void
-) {
-  const startTime = Date.now();
-  
-  try {
-    console.log(`[Background] Processing Remote Config message: ${message.type}`);
-    
-    if (!remoteConfigManager || !remoteConfigManager.initialized) {
-      throw new Error('Remote Config Manager not initialized');
-    }
-    
-    let result: any = null;
-
-    switch (message.type) {
-      case 'remote-config:fetch': {
-        const { force = false } = message.payload || {};
-        console.log(`[Background] Fetching remote config (force: ${force})`);
-        await remoteConfigManager.fetchConfig(force);
-        result = { success: true, timestamp: Date.now() };
-        break;
-      }
-
-      case 'remote-config:get-feature-flag': {
-        const { flagName } = message.payload || {};
-        if (!flagName) {
-          throw new Error('Feature flag name is required');
-        }
-        
-        console.log(`[Background] Getting feature flag: ${flagName}`);
-        result = await remoteConfigManager.getFeatureFlag(flagName);
-        break;
-      }
-
-      case 'remote-config:get-config': {
-        const { key } = message.payload || {};
-        if (key) {
-          console.log(`[Background] Getting specific config for key: ${key}`);
-          result = await remoteConfigManager.getSpecificConfig(key);
-        } else {
-          console.log('[Background] Getting all remote config');
-          result = await remoteConfigManager.getAllConfig();
-        }
-        //development
-        // console.log('[Background] Remote config retrieved:', result);
-        break;
-      }
-
-      case 'remote-config:get-status': {
-        console.log('[Background] Getting remote config status');
-        result = {
-          initialized: remoteConfigManager.initialized,
-          lastFetchTime: await remoteConfigManager.getLastFetchTimePublic(),
-          timestamp: Date.now()
-        };
-        break;
-      }
-
-      case 'remote-config:clear-cache': {
-        console.log('[Background] Clearing remote config cache and refreshing');
-        const success = await remoteConfigManager.clearCacheAndRefresh();
-        result = {
-          success,
-          timestamp: Date.now()
-        };
-        break;
-      }
-
-      default:
-        throw new Error(`Unknown remote config message type: ${message.type}`);
-    }
-
-    // Send success response
-    const response = {
-      success: true,
-      data: result,
-      processingTime: Date.now() - startTime,
-      timestamp: Date.now()
-    };
-    
-    console.log(`[Background] Remote Config message processed successfully: ${message.type} (${response.processingTime}ms)`);
-    sendResponse(response);
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[Background] Error processing Remote Config message ${message.type}:`, error);
-    
-    // Send error response
-    const response = {
-      success: false,
-      error: errorMessage,
-      processingTime: Date.now() - startTime,
-      timestamp: Date.now()
-    };
-    
-    sendResponse(response);
-  }
-}
-
-/**
- * Initialize Remote Config Manager
- */
-async function initializeRemoteConfig(): Promise<void> {
-  try {
-    remoteConfigManager = new RemoteConfigManager();
-    await remoteConfigManager.initialize();
-    console.log('[Background] Remote Config Manager initialized successfully');
-    
-    // Make RemoteConfigManager globally accessible for testing
-    if (typeof globalThis !== 'undefined') {
-      (globalThis as any).remoteConfigManager = remoteConfigManager;
-      console.log('[Background] RemoteConfigManager is now accessible globally as window.remoteConfigManager');
-    }
-  } catch (error) {
-    console.error('[Background] Failed to initialize Remote Config Manager:', error);
-    // Don't throw - let the extension continue without remote config
-  }
-}
+// Remote Config message handler and initialization removed for security hardening
 

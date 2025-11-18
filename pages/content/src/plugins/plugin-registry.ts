@@ -26,7 +26,8 @@ import { ChatGPTAdapter } from './adapters/chatgpt.adapter';
 import { KimiAdapter } from './adapters/kimi.adapter';
 import { ZAdapter } from './adapters/z.adapter';
 import { QwenAdapter } from './adapters/qwenchat.adapter';
-import { RemoteConfigPlugin } from './remote-config.plugin';
+// SECURITY: Remote Config Plugin disabled for security hardening
+// import { RemoteConfigPlugin } from './remote-config.plugin';
 
 // Types for lazy initialization
 interface AdapterFactory {
@@ -672,20 +673,21 @@ class PluginRegistry {
   private async registerBuiltInAdapters(): Promise<void> {
     try {
 
-            // Register Remote Config Plugin (core extension functionality) - EAGERLY INITIALIZED
-      const remoteConfigPlugin = new RemoteConfigPlugin();
-      await this.register(remoteConfigPlugin, {
-        id: 'remote-config-plugin',
-        name: 'Remote Config Plugin',
-        description: 'Firebase Remote Config integration for feature flags and notifications',
-        version: '1.0.0',
-        enabled: true,
-        priority: 2, // High priority for core functionality
-        settings: {
-          logLevel: 'info',
-          autoActivate: true,
-        },
-      });
+      // SECURITY: Remote Config Plugin disabled for security hardening
+      // Remote configuration has been completely disabled to prevent external data transmission
+      // const remoteConfigPlugin = new RemoteConfigPlugin();
+      // await this.register(remoteConfigPlugin, {
+      //   id: 'remote-config-plugin',
+      //   name: 'Remote Config Plugin',
+      //   description: 'Firebase Remote Config integration for feature flags and notifications',
+      //   version: '1.0.0',
+      //   enabled: true,
+      //   priority: 2, // High priority for core functionality
+      //   settings: {
+      //     logLevel: 'info',
+      //     autoActivate: true,
+      //   },
+      // });
 
       // Register SidebarPlugin first (highest priority core functionality) - EAGERLY INITIALIZED
       const sidebarPlugin = new SidebarPlugin();

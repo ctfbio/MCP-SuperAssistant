@@ -38,7 +38,7 @@ const manifest = {
     '*://*.gemini.google.com/*',
     '*://*.aistudio.google.com/*',
     '*://*.openrouter.ai/*',
-    '*://*.google-analytics.com/*',
+    // Google Analytics permission removed for security hardening
     '*://*.chat.deepseek.com/*',
     '*://*.t3.chat/*',
     '*://*.chat.mistral.ai/*',
